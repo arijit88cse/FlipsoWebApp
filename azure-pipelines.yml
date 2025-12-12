@@ -1,12 +1,7 @@
-# CI/CD Pipeline for Flipso E-commerce (ASP.NET Core)
-# --- IMPORTANT: Ensure proper indentation. YAML is whitespace sensitive! ---
-
+# Full CI/CD Pipeline for Flipso E-commerce (ASP.NET Core)
 
 trigger:
 - main # Triggers the pipeline on every push to the 'main' branch
-
-pool:
-  vmImage: 'windows-latest' # Use a Windows agent for the build
 
 # =================================================================
 # VARIABLES: Customize these values
@@ -14,20 +9,23 @@ pool:
 variables:
   # General Build Variables
   buildConfiguration: 'Release' 
+  artifactName: 'drop' 
   
-  # Azure Web App Variables (CRITICAL: Replace with your values)
-  azureServiceName: 'flipsowebapp-gharijit'
-  azureSubscription: 'arijit88cse' 
-  artifactName: 'drop' # Name of the package artifact
+  # Azure Web App Variables (CRITICAL: Replace with your actual values)
+  azureServiceName: 'flipsowebapp-gharijit' # <-- Your unique App Service name
+  azureSubscription: 'Flipso-AzureRM-Manual' # <-- Your successful Azure Resource Manager Service Connection name
+  environmentName: 'Flipso-Production' # <-- The Azure DevOps Environment name
 
 # =================================================================
-# STAGE 1: Continuous Integration (CI - Build, Test, Package)
+# STAGE 1: Continuous Integration (CI - Build and Package)
 # =================================================================
 stages:
 - stage: Build
   displayName: CI - Build and Package Application
   jobs:
   - job: BuildJob
+    pool:
+      vmImage: 'windows-latest'
     steps:
     
     # 1. Install/Use .NET SDK
@@ -37,31 +35,17 @@ stages:
         version: '8.x' # Ensure this matches your project's target framework
         packageType: 'sdk'
 
-    # 2. Restore Dependencies
+    # 2. Restore, Build, and Publish the Application
+    # Using 'publish' with publishWebProjects: true handles restore and build automatically
     - task: DotNetCoreCLI@2
-      displayName: 'Restore Dependencies'
-      inputs:
-        command: 'restore'
-        projects: '**/*.csproj'
-
-    # 3. Build the Application
-    - task: DotNetCoreCLI@2
-      displayName: 'Build Project'
-      inputs:
-        command: 'build'
-        projects: '**/*.csproj'
-        arguments: '--configuration $(buildConfiguration)'
-
-    # 4. Publish the Web App (Creates the deployable .zip package)
-    - task: DotNetCoreCLI@2
-      displayName: 'Publish Web App'
+      displayName: 'Build and Publish Web App'
       inputs:
         command: 'publish'
         publishWebProjects: true 
         arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
         zipAfterPublish: true 
 
-    # 5. Publish Artifact (Saves the .zip file for the Deployment stage)
+    # 3. Publish Artifact (Saves the .zip file for the Deployment stage)
     - task: PublishBuildArtifacts@1
       displayName: 'Publish Build Artifact'
       inputs:
@@ -78,19 +62,17 @@ stages:
   jobs:
   - deployment: DeployJob
     displayName: Deploy Web App
-    environment: 'Flipso-Production' # Descriptive name for the deployment environment
+    environment: $(environmentName) # References the Azure DevOps Environment
     pool:
       vmImage: 'windows-latest'
       
-    # -------------------------------------------------------------
-    # FIX APPLIED: 'steps' moved under 'strategy > runOnce > deploy'
-    # -------------------------------------------------------------
+    # Correct structure for Deployment Job: use 'strategy'
     strategy: 
       runOnce: 
         deploy: 
-          steps: # <--- CORRECT LOCATION for steps inside a deployment job
+          steps: 
           
-          # 1. Download Artifact 
+          # 1. Download Artifact (Pulls the .zip file created in the Build stage)
           - task: DownloadBuildArtifacts@1
             displayName: 'Download Artifact'
             inputs:
@@ -102,6 +84,6 @@ stages:
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App'
             inputs:
-              azureSubscription: '$(azureSubscription)' 
-              appName: '$(azureServiceName)' 
+              azureSubscription: '$(azureSubscription)' # The Service Connection name
+              appName: '$(azureServiceName)' # The target App Service name
               package: '$(System.ArtifactsDirectory)/$(artifactName)/**/*.zip'
