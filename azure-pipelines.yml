@@ -33,7 +33,7 @@ stages:
     - task: UseDotNet@2
       displayName: 'Install .NET SDK'
       inputs:
-        version: '8.x' 
+        version: '10.x' 
         packageType: 'sdk'
 
     # 2. Restore, Build, and Publish the Application
