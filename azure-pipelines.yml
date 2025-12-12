@@ -1,6 +1,7 @@
 # CI/CD Pipeline for Flipso E-commerce (ASP.NET Core)
 # --- IMPORTANT: Ensure proper indentation. YAML is whitespace sensitive! ---
 
+
 trigger:
 - main # Triggers the pipeline on every push to the 'main' branch
 
