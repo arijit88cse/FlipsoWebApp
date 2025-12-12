@@ -17,7 +17,7 @@ variables:
   
   # Azure Web App Variables (CRITICAL: Replace with your values)
   azureServiceName: 'flipsowebapp-gharijit'
-  azureSubscription: 'Azure subscription 1' 
+  azureSubscription: 'Flipso-Azure-Connection' 
   artifactName: 'drop' # Name of the package artifact
 
 # =================================================================
