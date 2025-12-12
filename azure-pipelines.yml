@@ -1,10 +1,11 @@
 # Full CI/CD Pipeline for Flipso E-commerce (ASP.NET Core)
+# This pipeline runs on the self-hosted agent named 'default'
 
 trigger:
 - main # Triggers the pipeline on every push to the 'main' branch
 
 # =================================================================
-# VARIABLES: Customize these values
+# VARIABLES: CRITICAL - Update these three lines with your values
 # =================================================================
 variables:
   # General Build Variables
@@ -12,9 +13,9 @@ variables:
   artifactName: 'drop' 
   
   # Azure Web App Variables (CRITICAL: Replace with your actual values)
-  azureServiceName: 'flipsowebapp-gharijit' # <-- Your unique App Service name
+  azureServiceName: 'flipsowebapp-yourname' # <-- Your unique App Service name (e.g., flipsowebapp-gharijit)
   azureSubscription: 'Flipso-AzureRM-Manual' # <-- Your successful Azure Resource Manager Service Connection name
-  environmentName: 'Flipso-Production' # <-- The Azure DevOps Environment name
+  environmentName: 'Flipso-Production' # <-- The Azure DevOps Environment name you created
 
 # =================================================================
 # STAGE 1: Continuous Integration (CI - Build and Package)
@@ -25,18 +26,17 @@ stages:
   jobs:
   - job: BuildJob
     pool:
-      vmImage: 'windows-latest'
+      name: 'default' # <--- CRITICAL CHANGE: Uses your self-hosted agent's pool
     steps:
     
-    # 1. Install/Use .NET SDK
+    # 1. Install/Use .NET SDK (Ensures required framework is on the agent)
     - task: UseDotNet@2
       displayName: 'Install .NET SDK'
       inputs:
-        version: '8.x' # Ensure this matches your project's target framework
+        version: '8.x' 
         packageType: 'sdk'
 
     # 2. Restore, Build, and Publish the Application
-    # Using 'publish' with publishWebProjects: true handles restore and build automatically
     - task: DotNetCoreCLI@2
       displayName: 'Build and Publish Web App'
       inputs:
@@ -62,11 +62,10 @@ stages:
   jobs:
   - deployment: DeployJob
     displayName: Deploy Web App
-    environment: $(environmentName) # References the Azure DevOps Environment
+    environment: $(environmentName) 
     pool:
-      vmImage: 'windows-latest'
+      name: 'default' # <--- CRITICAL CHANGE: Uses your self-hosted agent for deployment too
       
-    # Correct structure for Deployment Job: use 'strategy'
     strategy: 
       runOnce: 
         deploy: 
@@ -84,6 +83,6 @@ stages:
           - task: AzureWebApp@1
             displayName: 'Deploy to Azure Web App'
             inputs:
-              azureSubscription: '$(azureSubscription)' # The Service Connection name
-              appName: '$(azureServiceName)' # The target App Service name
+              azureSubscription: '$(azureSubscription)' 
+              appName: '$(azureServiceName)' 
               package: '$(System.ArtifactsDirectory)/$(artifactName)/**/*.zip'
