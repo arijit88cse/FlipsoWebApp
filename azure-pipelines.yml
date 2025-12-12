@@ -1,0 +1,102 @@
+# CI/CD Pipeline for Flipso E-commerce (ASP.NET Core)
+
+trigger:
+- main # Triggers the pipeline on every push to the 'main' branch
+
+pool:
+  vmImage: 'windows-latest' # Use a Windows agent to build the ASP.NET Core app
+
+# =================================================================
+# VARIABLES: Customize these values
+# =================================================================
+variables:
+  # General Build Variables
+  buildConfiguration: 'Release' 
+  
+  # Azure Web App Variables (CRITICAL: Replace with your values)
+  azureServiceName: 'flipsowebapp-gharijit' 
+  azureSubscription: 'Azure subscription 1' 
+  artifactName: 'drop' # Name of the package artifact
+
+# =================================================================
+# STAGE 1: Continuous Integration (CI - Build, Test, Package)
+# =================================================================
+stages:
+- stage: Build
+  displayName: CI - Build and Package Application
+  jobs:
+  - job: BuildJob
+    steps:
+    
+    # 1. Install/Use .NET SDK (Ensures the correct runtime is available)
+    - task: UseDotNet@2
+      displayName: 'Install .NET SDK'
+      inputs:
+        version: '8.x' # Use the version matching your project (e.g., 6.x, 7.x, 8.x)
+        packageType: 'sdk'
+
+    # 2. Restore Dependencies (Equivalent to NuGet restore)
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore Dependencies'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+
+    # 3. Build the Application
+    - task: DotNetCoreCLI@2
+      displayName: 'Build Project'
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration)'
+
+    # 4. Publish the Web App (Creates the deployable .zip package)
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish Web App'
+      inputs:
+        command: 'publish'
+        publishWebProjects: true # Automatically finds and publishes web projects
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+        zipAfterPublish: true # Zips the output, which is ideal for Azure Web App deployment
+
+    # 5. Publish Artifact (Saves the .zip file for the Deployment stage)
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Artifact'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: '$(artifactName)'
+
+# =================================================================
+# STAGE 2: Continuous Deployment (CD - Deploy to Azure Web App)
+# =================================================================
+- stage: Deploy
+  displayName: CD - Deploy to Azure Web App
+  dependsOn: Build # Ensures this stage runs only if the Build stage succeeds
+  condition: succeeded() # Ensures deployment only happens on success
+  jobs:
+  - deployment: DeployJob
+    displayName: Deploy Web App
+    environment: 'Flipso-Production' # Descriptive name for the deployment environment
+    pool:
+      vmImage: 'windows-latest'
+    
+    steps:
+    
+    # 1. Download Artifact (Pulls the .zip file created in the Build stage)
+    - task: DownloadBuildArtifacts@1
+      displayName: 'Download Artifact'
+      inputs:
+        buildType: 'current'
+        artifactName: '$(artifactName)'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        
+    # 2. Deploy to Azure Web App (The final deployment step)
+    - task: AzureWebApp@1
+      displayName: 'Deploy to Azure Web App'
+      inputs:
+        azureSubscription: '$(azureSubscription)' # The Azure Service Connection name
+        appName: '$(azureServiceName)' # The unique Azure Web App name
+        # Package path points to the downloaded artifact (.zip file)
+        package: '$(System.ArtifactsDirectory)/$(artifactName)/**/*.zip' 
+        # Optional: Set the app type if you are deploying to Linux
+        # appType: 'webApp' # Use 'webApp' for Windows, 'webAppLinux' for Linux
