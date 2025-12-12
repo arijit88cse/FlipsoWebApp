@@ -13,7 +13,7 @@ variables:
   artifactName: 'drop' 
   
   # Azure Web App Variables (CRITICAL: Replace with your actual values)
-  azureServiceName: 'flipsowebapp-yourname' # <-- Your unique App Service name (e.g., flipsowebapp-gharijit)
+  azureServiceName: 'flipsowebapp-gharijit' # <-- Your unique App Service name (e.g., flipsowebapp-gharijit)
   azureSubscription: 'Flipso-AzureRM-Manual' # <-- Your successful Azure Resource Manager Service Connection name
   environmentName: 'Flipso-Production' # <-- The Azure DevOps Environment name you created
 
