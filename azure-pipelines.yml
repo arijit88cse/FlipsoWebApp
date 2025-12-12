@@ -1,10 +1,11 @@
 # CI/CD Pipeline for Flipso E-commerce (ASP.NET Core)
+# --- IMPORTANT: Ensure proper indentation. YAML is whitespace sensitive! ---
 
 trigger:
 - main # Triggers the pipeline on every push to the 'main' branch
 
 pool:
-  vmImage: 'windows-latest' # Use a Windows agent to build the ASP.NET Core app
+  vmImage: 'windows-latest' # Use a Windows agent for the build
 
 # =================================================================
 # VARIABLES: Customize these values
@@ -14,7 +15,7 @@ variables:
   buildConfiguration: 'Release' 
   
   # Azure Web App Variables (CRITICAL: Replace with your values)
-  azureServiceName: 'flipsowebapp-gharijit' 
+  azureServiceName: 'flipsowebapp-gharijit'
   azureSubscription: 'Azure subscription 1' 
   artifactName: 'drop' # Name of the package artifact
 
@@ -28,14 +29,14 @@ stages:
   - job: BuildJob
     steps:
     
-    # 1. Install/Use .NET SDK (Ensures the correct runtime is available)
+    # 1. Install/Use .NET SDK
     - task: UseDotNet@2
       displayName: 'Install .NET SDK'
       inputs:
-        version: '8.x' # Use the version matching your project (e.g., 6.x, 7.x, 8.x)
+        version: '8.x' # Ensure this matches your project's target framework
         packageType: 'sdk'
 
-    # 2. Restore Dependencies (Equivalent to NuGet restore)
+    # 2. Restore Dependencies
     - task: DotNetCoreCLI@2
       displayName: 'Restore Dependencies'
       inputs:
@@ -55,9 +56,9 @@ stages:
       displayName: 'Publish Web App'
       inputs:
         command: 'publish'
-        publishWebProjects: true # Automatically finds and publishes web projects
+        publishWebProjects: true 
         arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
-        zipAfterPublish: true # Zips the output, which is ideal for Azure Web App deployment
+        zipAfterPublish: true 
 
     # 5. Publish Artifact (Saves the .zip file for the Deployment stage)
     - task: PublishBuildArtifacts@1
@@ -71,32 +72,35 @@ stages:
 # =================================================================
 - stage: Deploy
   displayName: CD - Deploy to Azure Web App
-  dependsOn: Build # Ensures this stage runs only if the Build stage succeeds
-  condition: succeeded() # Ensures deployment only happens on success
+  dependsOn: Build 
+  condition: succeeded() 
   jobs:
   - deployment: DeployJob
     displayName: Deploy Web App
     environment: 'Flipso-Production' # Descriptive name for the deployment environment
     pool:
       vmImage: 'windows-latest'
-    
-    steps:
-    
-    # 1. Download Artifact (Pulls the .zip file created in the Build stage)
-    - task: DownloadBuildArtifacts@1
-      displayName: 'Download Artifact'
-      inputs:
-        buildType: 'current'
-        artifactName: '$(artifactName)'
-        downloadPath: '$(System.ArtifactsDirectory)'
-        
-    # 2. Deploy to Azure Web App (The final deployment step)
-    - task: AzureWebApp@1
-      displayName: 'Deploy to Azure Web App'
-      inputs:
-        azureSubscription: '$(azureSubscription)' # The Azure Service Connection name
-        appName: '$(azureServiceName)' # The unique Azure Web App name
-        # Package path points to the downloaded artifact (.zip file)
-        package: '$(System.ArtifactsDirectory)/$(artifactName)/**/*.zip' 
-        # Optional: Set the app type if you are deploying to Linux
-        # appType: 'webApp' # Use 'webApp' for Windows, 'webAppLinux' for Linux
+      
+    # -------------------------------------------------------------
+    # FIX APPLIED: 'steps' moved under 'strategy > runOnce > deploy'
+    # -------------------------------------------------------------
+    strategy: 
+      runOnce: 
+        deploy: 
+          steps: # <--- CORRECT LOCATION for steps inside a deployment job
+          
+          # 1. Download Artifact 
+          - task: DownloadBuildArtifacts@1
+            displayName: 'Download Artifact'
+            inputs:
+              buildType: 'current'
+              artifactName: '$(artifactName)'
+              downloadPath: '$(System.ArtifactsDirectory)'
+              
+          # 2. Deploy to Azure Web App 
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Azure Web App'
+            inputs:
+              azureSubscription: '$(azureSubscription)' 
+              appName: '$(azureServiceName)' 
+              package: '$(System.ArtifactsDirectory)/$(artifactName)/**/*.zip'
